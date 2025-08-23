@@ -11,6 +11,7 @@ import {
 import { eq } from "drizzle-orm";
 
 export const { auth, handlers, signIn, signOut } = NextAuth({
+  // FIXED: Explicit table mapping for DrizzleAdapter
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
@@ -20,62 +21,78 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
  
   session: { strategy: "jwt" },
  
+  // REMOVED: Custom pages that were causing 404 errors
+  // This will now use Auth.js default signin page
+  // pages: {
+  //   signIn: "/auth/signin",
+  //   error: "/auth/error",
+  // },
+ 
   callbacks: {
-    async session({ session, token }) {
-      console.log("🔄 Session callback - token:", token);
-      console.log("🔄 Session callback - session before:", session);
-
+    async session({ session, token, trigger, newSession }) {
       if (session && token.sub) {
         session.user.id = token.sub;
       }
-      if (session.user) {
+      if (session.user && token.role) {
         session.user.role = token.role as string;
+      }
+      if (session.user) {
         session.user.name = token.name;
         session.user.email = token.email as string;
         session.user.isOAuth = token.isOAuth as boolean;
         session.user.image = token.image as string;
       }
 
-      console.log("🔄 Session callback - session after:", session);
+      // If this is an update trigger, merge the new session data
+      if (trigger === "update" && newSession) {
+        // Update the token with new values
+        if (newSession.user?.name !== undefined) {
+          token.name = newSession.user.name;
+          session.user.name = newSession.user.name;
+        }
+        if (newSession.user?.image !== undefined) {
+          token.image = newSession.user.image;
+          session.user.image = newSession.user.image;
+        }
+      }
+      
       return session;
     },
    
     async jwt({ token, trigger, session }) {
-      console.log("🔧 JWT callback - trigger:", trigger);
-      console.log("🔧 JWT callback - token before:", token);
+      if (!token.sub) return token;
 
-      // Handle session updates
+      // If this is an update trigger, refresh from database and merge session data
       if (trigger === "update") {
-        console.log("🔄 JWT Update triggered - fetching fresh data");
-        
-        if (!token.sub) return token;
-        
         try {
-          const freshUser = await db.query.users.findFirst({
+          const existingUser = await db.query.users.findFirst({
             where: eq(users.id, token.sub),
           });
           
-          console.log("🔄 Fresh user data:", freshUser);
-          
-          if (freshUser) {
-            token.name = freshUser.name;
-            token.image = freshUser.image;
-            token.email = freshUser.email;
-            token.role = freshUser.role;
-            token.isTwoFactorEnabled = freshUser.twoFactorEnabled;
-            
-            console.log("🔄 Updated token with fresh data:", token);
+          if (existingUser) {
+            // Update token with fresh database values
+            token.name = existingUser.name;
+            token.email = existingUser.email;
+            token.role = existingUser.role;
+            token.isTwoFactorEnabled = existingUser.twoFactorEnabled;
+            token.image = existingUser.image;
+          }
+
+          // Also merge any session data passed from update call
+          if (session?.user?.name !== undefined) {
+            token.name = session.user.name;
+          }
+          if (session?.user?.image !== undefined) {
+            token.image = session.user.image;
           }
         } catch (error) {
-          console.error("❌ Error fetching fresh user data:", error);
+          console.error("JWT update callback error:", error);
         }
         
         return token;
       }
 
-      // Initial token setup
-      if (!token.sub) return token;
-     
+      // For initial JWT creation or refresh (not update), load from database
       try {
         const existingUser = await db.query.users.findFirst({
           where: eq(users.id, token.sub),
@@ -94,10 +111,9 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         token.isTwoFactorEnabled = existingUser.twoFactorEnabled;
         token.image = existingUser.image;
        
-        console.log("🔧 JWT callback - token after:", token);
         return token;
       } catch (error) {
-        console.error("💥 JWT callback error:", error);
+        console.error("JWT callback error:", error);
         return token;
       }
     },
@@ -110,5 +126,6 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
     }),
   ],
  
+  // Enable debug in development
   debug: process.env.NODE_ENV === "development",
 });

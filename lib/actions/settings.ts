@@ -1,7 +1,7 @@
 "use server"
 import { SettingsSchema } from "@/Types/settings-schema"
 import { createSafeActionClient } from "next-safe-action"
-import { auth } from "@/server/auth" // Import auth function
+import { auth } from "@/server/auth"
 import { db } from "@/server"
 import { eq } from "drizzle-orm"
 import { users } from "@/server/schema"
@@ -16,23 +16,23 @@ export const settings = action
    
     try {
       // Check auth
-      const session = await auth();
-      console.log("👤 Auth result:", session);
+      const user = await auth();
+      console.log("👤 Auth result:", user);
      
-      if (!session) {
-        console.log("❌ No session found");
+      if (!user) {
+        console.log("❌ No user found");
         return { error: "User not found" };
       }
-      
-      // Check if session.user exists
-      const userId = session.user?.id;
+
+      // Check if user.user exists or if it's just user.id
+      const userId = user.user?.id;
       console.log("🔍 Using user ID:", userId);
-     
+      
       if (!userId) {
         console.log("❌ No user ID found");
         return { error: "Invalid user session" };
       }
-      
+
       // Find user in database
       console.log("🔍 Looking for user in database...");
       const dbUser = await db.query.users.findFirst({
@@ -45,27 +45,41 @@ export const settings = action
         console.log("❌ User not found in database");
         return { error: "User not found in database" };
       }
+
+      // Prepare update data - only include fields that are provided
+      const updateData: { name?: string; image?: string } = {};
       
-      // Update user in database
-      console.log("🔄 Updating user with:", { name: values.name, image: values.image });
+      if (values.name !== undefined) {
+        updateData.name = values.name;
+      }
+      
+      if (values.image !== undefined) {
+        updateData.image = values.image;
+      }
+
+      // Update user
+      console.log("🔄 Updating user with:", updateData);
      
       const updateResult = await db
         .update(users)
-        .set({
-          name: values.name,
-          image: values.image,
-        })
+        .set(updateData)
         .where(eq(users.id, dbUser.id));
-     
+        
       console.log("✅ Update result:", updateResult);
-      
-      // Revalidate multiple paths to ensure UI updates
+
+      // Revalidate paths
       revalidatePath("/dashboard/settings");
       revalidatePath("/dashboard");
-      revalidatePath("/");
       console.log("🔄 Paths revalidated");
-     
-      return { success: "Settings updated successfully!" };
+
+      // Return the updated values so the client can update the session
+      return { 
+        success: "Settings updated successfully!",
+        updatedUser: {
+          ...dbUser,
+          ...updateData
+        }
+      };
      
     } catch (error) {
       console.error("💥 Error in settings action:", error);
@@ -78,12 +92,12 @@ export const settings = action
 // Alternative: Simple test function to check if basic functionality works
 export async function testSettings() {
   try {
-    const session = await auth();
-    console.log("Test - Auth session:", session);
+    const user = await auth();
+    console.log("Test - Auth user:", user);
    
-    if (!session) return { error: "No auth" };
+    if (!user) return { error: "No auth" };
    
-    const userId = session.user?.id;
+    const userId = user.user?.id;
     console.log("Test - User ID:", userId);
    
     const dbUser = await db.query.users.findFirst({
