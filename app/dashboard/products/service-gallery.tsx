@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/table"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
-import { Trash, Star } from "lucide-react"
+import { Trash, Star, ImageIcon } from "lucide-react"
 import { Reorder } from "framer-motion"
 import { useRouter } from "next/navigation"
 
@@ -63,6 +63,7 @@ const CorrectedServiceGallerySchema = z.object({
   imageUrl: z.string().optional(),
   imageKey: z.string().optional(),
   galleryImages: z.array(z.object({
+    id: z.string().optional(),
     name: z.string(),
     size: z.number(),
     url: z.string(),
@@ -96,27 +97,32 @@ function ServiceGalleryImages() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <FormField
         control={control}
         name="galleryImages"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Upload Service Images</FormLabel>
+            <FormLabel className="text-lg font-semibold flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-amber-600" />
+              Upload Service Images
+            </FormLabel>
             <FormControl>
               <UploadDropzone
-                className=" ut-allowed-content:text-secondary-foreground ut-label:text-primary ut-upload-icon:text-primary/50 hover:bg-primary/10 transition-all duration-500 ease-in-out border-secondary ut-button:bg-primary/75 ut-button:ut-readying:bg-secondary "
+                className="border-2 border-dashed border-amber-200 bg-amber-50/50 hover:bg-amber-100/50 transition-all duration-300 rounded-xl ut-allowed-content:text-slate-600 ut-label:text-amber-800 ut-label:text-lg ut-upload-icon:text-amber-600 ut-button:bg-gradient-to-r ut-button:from-amber-600 ut-button:to-amber-700 ut-button:hover:from-amber-700 ut-button:hover:to-amber-800 ut-button:text-white ut-button:font-semibold ut-button:px-6 ut-button:py-3 ut-button:rounded-lg ut-button:shadow-lg ut-button:ut-readying:bg-amber-400"
                 onUploadError={(error) => {
                   console.log(error)
                   setError("galleryImages", {
                     type: "validate",
                     message: error.message,
                   })
+                  toast.error("Upload failed: " + error.message)
                   return
                 }}
                 onBeforeUploadBegin={(files) => {
                   files.map((file) =>
                     append({
+                      id: crypto.randomUUID(),
                       name: file.name,
                       size: file.size,
                       url: URL.createObjectURL(file),
@@ -148,14 +154,15 @@ function ServiceGalleryImages() {
                       }
                     })
                   }
+                  toast.success(`Successfully uploaded ${files.length} image(s)!`)
                   return
                 }}
                 config={{ mode: "auto" }}
                 endpoint="variantUploader"
               />
             </FormControl>
-            <FormDescription>
-              Upload images for your service. The first image will become the main image.
+            <FormDescription className="text-slate-600">
+              Upload high-quality images for your service. The first image will become the main display image.
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -163,104 +170,142 @@ function ServiceGalleryImages() {
       />
       
       {fields.length > 0 && (
-        <div className="rounded-md overflow-x-auto border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Size</TableHead>
-                <TableHead>Preview</TableHead>
-                <TableHead>Main Image</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <Reorder.Group
-              as="tbody"
-              values={fields}
-              onReorder={(e) => {
-                const activeElement = fields[active]
-                e.map((item, index) => {
-                  if (item === activeElement) {
-                    move(active, index)
-                    setActive(index)
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-800">Gallery Images ({fields.length})</h3>
+            <div className="text-sm text-slate-600">Drag to reorder</div>
+          </div>
+          
+          <div className="rounded-xl overflow-hidden border-2 border-slate-100 shadow-sm bg-white">
+            <Table>
+              <TableHeader className="bg-gradient-to-r from-slate-50 to-slate-100">
+                <TableRow className="border-b border-slate-200">
+                  <TableHead className="font-semibold text-slate-700 w-16">Order</TableHead>
+                  <TableHead className="font-semibold text-slate-700">Image</TableHead>
+                  <TableHead className="font-semibold text-slate-700">Details</TableHead>
+                  <TableHead className="font-semibold text-slate-700 text-center">Main Image</TableHead>
+                  <TableHead className="font-semibold text-slate-700 text-center w-20">Remove</TableHead>
+                </TableRow>
+              </TableHeader>
+              <Reorder.Group
+                as="tbody"
+                values={fields}
+                onReorder={(e) => {
+                  const activeElement = fields[active]
+                  e.map((item, index) => {
+                    if (item === activeElement) {
+                      move(active, index)
+                      setActive(index)
+                      return
+                    }
                     return
-                  }
-                  return
-                })
-              }}
-            >
-              {fields.map((field, index) => {
-                const isMainImage = getValues("imageUrl") === field.url
-                return (
-                  <Reorder.Item
-                    as="tr"
-                    key={field.id}
-                    value={field}
-                    id={field.id}
-                    onDragStart={() => setActive(index)}
-                    className={cn(
-                      field.url.search("blob:") === 0
-                        ? "animate-pulse transition-all"
-                        : "",
-                      "text-sm font-bold text-muted-foreground hover:text-primary cursor-move",
-                      isMainImage && "bg-primary/5 border-l-4 border-primary"
-                    )}
-                  >
-                    <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell className="max-w-[150px] truncate">{field.name}</TableCell>
-                    <TableCell>
-                      {(field.size / (1024 * 1024)).toFixed(2)} MB
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-center">
-                        <Image
-                          src={field.url}
-                          alt={field.name}
-                          className="rounded-md object-cover border"
-                          width={60}
-                          height={40}
-                        />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant={isMainImage ? "default" : "outline"}
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setMainImage(index)
-                        }}
-                        className="h-8"
-                      >
-                        <Star className={cn("h-3 w-3", isMainImage && "fill-current")} />
-                        {isMainImage && <span className="ml-1 text-xs">Main</span>}
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          // If removing main image, clear main image fields
-                          if (isMainImage) {
-                            setValue("imageUrl", "")
-                            setValue("imageKey", "")
-                            toast.info("Main image cleared")
-                          }
-                          remove(index)
-                        }}
-                        className="h-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash className="h-3 w-3" />
-                      </Button>
-                    </TableCell>
-                  </Reorder.Item>
-                )
-              })}
-            </Reorder.Group>
-          </Table>
+                  })
+                }}
+              >
+                {fields.map((field, index) => {
+                  const isMainImage = getValues("imageUrl") === field.url
+                  const isUploading = field.url.search("blob:") === 0
+                  
+                  return (
+                    <Reorder.Item
+                      as="tr"
+                      key={field.id}
+                      value={field}
+                      id={field.id}
+                      onDragStart={() => setActive(index)}
+                      className={cn(
+                        "hover:bg-slate-50 transition-colors cursor-move border-b border-slate-100",
+                        isUploading && "animate-pulse bg-blue-50",
+                        isMainImage && "bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-500"
+                      )}
+                    >
+                      <TableCell className="font-bold text-slate-600">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-sm">
+                          {index + 1}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="py-4">
+                        <div className="relative group">
+                          <Image
+                            src={field.url}
+                            alt={field.name}
+                            className="rounded-lg object-cover border-2 border-slate-200 shadow-sm group-hover:shadow-md transition-shadow"
+                            width={80}
+                            height={60}
+                          />
+                          {isUploading && (
+                            <div className="absolute inset-0 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent" />
+                            </div>
+                          )}
+                          {isMainImage && (
+                            <div className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs px-2 py-1 rounded-full shadow-md">
+                              Main
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium text-slate-800 max-w-[200px] truncate" title={field.name}>
+                            {field.name}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {(field.size / (1024 * 1024)).toFixed(2)} MB
+                          </div>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <Button
+                          variant={isMainImage ? "default" : "outline"}
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            setMainImage(index)
+                          }}
+                          className={cn(
+                            "h-10 px-4",
+                            isMainImage 
+                              ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-md" 
+                              : "border-amber-300 text-amber-700 hover:bg-amber-50"
+                          )}
+                          disabled={isUploading}
+                        >
+                          <Star className={cn("h-4 w-4", isMainImage && "fill-current")} />
+                          <span className="ml-1 text-xs">{isMainImage ? "Main" : "Set"}</span>
+                        </Button>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            // If removing main image, clear main image fields
+                            if (isMainImage) {
+                              setValue("imageUrl", "")
+                              setValue("imageKey", "")
+                              toast.info("Main image cleared")
+                            }
+                            remove(index)
+                            toast.success("Image removed")
+                          }}
+                          className="h-10 w-10 text-red-500 hover:text-red-700 hover:bg-red-50"
+                          disabled={isUploading}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </Reorder.Item>
+                  )
+                })}
+              </Reorder.Group>
+            </Table>
+          </div>
         </div>
       )}
     </div>
@@ -283,35 +328,52 @@ export const ServiceGallery = forwardRef<HTMLDivElement, ServiceGalleryProps>(
 
     const [open, setOpen] = useState(false)
 
-    const setEdit = useCallback(() => {
+    const setEdit = useCallback(async () => {
       if (service) {
+        console.log("🔄 Loading service data:", service)
+        
         // Parse gallery URLs and Keys if they exist
         let galleryUrls: string[] = []
         let galleryKeys: string[] = []
         
         try {
-          galleryUrls = service.galleryUrls ? JSON.parse(service.galleryUrls) : []
-          galleryKeys = service.galleryKeys ? JSON.parse(service.galleryKeys) : []
+          if (service.galleryUrls && service.galleryUrls !== "null") {
+            galleryUrls = JSON.parse(service.galleryUrls)
+            console.log("📸 Parsed gallery URLs:", galleryUrls)
+          }
+          
+          if (service.galleryKeys && service.galleryKeys !== "null") {
+            galleryKeys = JSON.parse(service.galleryKeys)
+            console.log("🏷️ Parsed gallery keys:", galleryKeys)
+          }
         } catch (error) {
-          console.error("Error parsing gallery data:", error)
+          console.error("❌ Error parsing gallery data:", error)
+          galleryUrls = []
+          galleryKeys = []
         }
 
-        // Map URLs and Keys to gallery images format
+        // Map URLs and Keys to gallery images format with proper data
         const galleryImages = galleryUrls.map((url, index) => ({
+          id: `existing-${index}`,
           url,
           key: galleryKeys[index] || "",
           name: `Gallery Image ${index + 1}`,
-          size: 0, // Size not stored, using placeholder
+          size: 0, // Size not stored for existing images
         }))
+
+        console.log("🖼️ Mapped gallery images:", galleryImages)
 
         form.reset({
           serviceId: service.id,
           imageUrl: service.imageUrl || "",
           imageKey: service.imageKey || "",
           galleryImages,
-          galleryKeys,
+          galleryKeys: Array.isArray(galleryKeys) ? galleryKeys : [],
         })
+        
+        console.log("✅ Form reset with existing data")
       } else {
+        console.log("🆕 No service data, resetting to defaults")
         form.reset({
           serviceId,
           galleryImages: [],
@@ -324,17 +386,20 @@ export const ServiceGallery = forwardRef<HTMLDivElement, ServiceGalleryProps>(
 
     useEffect(() => {
       if (open) {
+        console.log("🔓 Dialog opened, loading data...")
         setEdit()
       }
     }, [setEdit, open])
 
     const { execute, status } = useAction(updateServiceGallery, {
       onExecute() {
-        toast.loading("Updating service gallery...")
+        toast.loading("Updating service gallery...", {
+          id: "update-gallery"
+        })
         setOpen(false)
       },
       onSuccess(data: ActionResult) {
-        toast.dismiss()
+        toast.dismiss("update-gallery")
         
         if (data?.data?.error) {
           toast.error(data.data.error)
@@ -345,16 +410,21 @@ export const ServiceGallery = forwardRef<HTMLDivElement, ServiceGalleryProps>(
         }
       },
       onError(error) {
-        toast.dismiss()
+        toast.dismiss("update-gallery")
         toast.error("Failed to update gallery")
         console.error("Update gallery error:", error)
       },
     })
 
     function onSubmit(values: ServiceGalleryFormData) {
+      console.log("📤 Submitting gallery update:", values)
+      
       // Extract URLs and keys from gallery images
       const galleryUrls = values.galleryImages.map(img => img.url)
-      const galleryKeysArray = values.galleryImages.map(img => img.key || "")
+      const galleryKeysFromImages = values.galleryImages.map(img => img.key || "").filter(Boolean)
+      
+      // Combine gallery keys (tags) with keys from images
+      const allKeys = [...new Set([...values.galleryKeys, ...galleryKeysFromImages])]
       
       execute({
         serviceId: values.serviceId,
@@ -362,15 +432,16 @@ export const ServiceGallery = forwardRef<HTMLDivElement, ServiceGalleryProps>(
         imageKey: values.imageKey,
         galleryImages: values.galleryImages,
         galleryUrls: JSON.stringify(galleryUrls),
-        galleryKeys: values.galleryKeys, // Use the tags from the form, not from images
+        galleryKeys: allKeys,
       })
     }
 
     const handleOpenChange = (newOpen: boolean) => {
       setOpen(newOpen)
       if (!newOpen) {
+        // Reset form when closing to ensure fresh state next time
         setTimeout(() => {
-          setEdit()
+          form.reset()
         }, 100)
       }
     }
@@ -378,29 +449,37 @@ export const ServiceGallery = forwardRef<HTMLDivElement, ServiceGalleryProps>(
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>{children}</DialogTrigger>
-        <DialogContent className="lg:max-w-screen-lg overflow-y-scroll max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Manage Service Gallery</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-r from-amber-600 to-amber-700 rounded-lg">
+                <ImageIcon className="h-6 w-6 text-white" />
+              </div>
+              Manage Service Gallery
+            </DialogTitle>
+            <DialogDescription className="text-slate-600 text-lg">
               Upload and organize images for your service. Set a main image and add gallery photos.
               You can drag images to reorder them.
             </DialogDescription>
           </DialogHeader>
+          
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
               <FormField
                 control={form.control}
                 name="galleryKeys"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Gallery Tags</FormLabel>
+                    <FormLabel className="text-lg font-semibold text-slate-800">
+                      Gallery Tags
+                    </FormLabel>
                     <FormControl>
                       <InputTags
                         value={field.value}
                         onChange={field.onChange}
                       />
                     </FormControl>
-                    <FormDescription>
+                    <FormDescription className="text-slate-600">
                       Add descriptive tags for your service gallery (e.g., "haircut", "styling", "before-after")
                     </FormDescription>
                     <FormMessage />
@@ -410,24 +489,32 @@ export const ServiceGallery = forwardRef<HTMLDivElement, ServiceGalleryProps>(
               
               <ServiceGalleryImages />
               
-              <div className="flex gap-4 items-center justify-between pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  {form.watch("galleryImages").length} images uploaded
+              <div className="flex gap-4 items-center justify-between pt-6 border-t bg-slate-50 -mx-6 px-6 py-4 -mb-6">
+                <div className="text-slate-600 font-medium">
+                  {form.watch("galleryImages").length} image{form.watch("galleryImages").length !== 1 ? 's' : ''} in gallery
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setOpen(false)}
+                    className="px-6 py-2 border-slate-300 text-slate-700 hover:bg-slate-100"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="min-w-[120px]"
+                    className="min-w-[140px] bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white font-semibold px-6 py-2 shadow-lg"
                     disabled={status === "executing"}
                   >
-                    {status === "executing" ? "Updating..." : "Update Gallery"}
+                    {status === "executing" ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                        <span>Updating...</span>
+                      </div>
+                    ) : (
+                      "Update Gallery"
+                    )}
                   </Button>
                 </div>
               </div>

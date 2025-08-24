@@ -1,7 +1,7 @@
 "use client"
 
 import { ColumnDef, Row } from "@tanstack/react-table"
-import { MoreHorizontal, Images, Clock, Star, Plus } from "lucide-react"
+import { MoreHorizontal, Images, Clock, Star, Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -25,8 +25,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useRouter } from "next/navigation"
-import { ServiceGallery } from "./service-gallery" // Import your ServiceGallery component
-import { ServicesWithImages } from "@/lib/infer-types" // Import your types
+import { ServiceGallery } from "./service-gallery"
+import { ServicesWithImages } from "@/lib/infer-types"
+import { cn } from "@/lib/utils"
 
 type ServiceColumn = {
   id: string
@@ -39,6 +40,7 @@ type ServiceColumn = {
   averageRating: number
   totalRatings: number
   isActive: boolean
+  serviceData?: ServicesWithImages // Pass the full service data
 }
 
 type ActionResult = {
@@ -90,21 +92,42 @@ const ActionCell = ({ row }: { row: Row<ServiceColumn> }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={"ghost"} className="h-8 w-8 p-0">
-          <MoreHorizontal className="h-4 w-4" />
+        <Button variant="ghost" className="h-10 w-10 p-0 hover:bg-slate-100 rounded-lg">
+          <MoreHorizontal className="h-5 w-5 text-slate-600" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem className="dark:focus:bg-primary focus:bg-primary/50 cursor-pointer">
-          <Link href={`/dashboard/add-service?id=${service.id}`}>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel className="font-semibold text-slate-800">Actions</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link 
+            href={`/dashboard/add-service?id=${service.id}`}
+            className="flex items-center gap-2 cursor-pointer"
+          >
+            <Edit className="h-4 w-4 text-blue-600" />
             Edit Service
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem className="flex items-center gap-2 cursor-pointer">
+          {service.isActive ? (
+            <>
+              <EyeOff className="h-4 w-4 text-orange-600" />
+              Deactivate
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4 text-green-600" />
+              Activate
+            </>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleDelete}
-          className="dark:focus:bg-destructive focus:bg-destructive/50 cursor-pointer"
           disabled={status === "executing"}
+          className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
         >
+          <Trash2 className="h-4 w-4" />
           {status === "executing" ? "Deleting..." : "Delete Service"}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -112,63 +135,89 @@ const ActionCell = ({ row }: { row: Row<ServiceColumn> }) => {
   )
 }
 
-// Image cell component with gallery management
+// Enhanced Image cell component with gallery management
 const ImageCell = ({ row }: { row: Row<ServiceColumn> }) => {
   const cellImage = row.getValue("image") as string
   const serviceName = row.getValue("name") as string
   const service = row.original
+  const serviceData = service.serviceData
   const isPlaceholder = cellImage.includes("Barber2.jpg") || cellImage.includes("placeholder")
   
+  // Check if service has gallery images
+  const hasGalleryImages = serviceData?.galleryUrls && 
+    serviceData.galleryUrls !== "null" && 
+    serviceData.galleryUrls !== "[]"
+  
+  const galleryCount = hasGalleryImages && typeof serviceData.galleryUrls === "string"
+    ? (JSON.parse(serviceData.galleryUrls).length || 0)
+    : 0
+  
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <div className="relative group">
-        <Image
-          src={cellImage}
-          alt={serviceName || 'Service image'}
-          width={50}
-          height={50}
-          className="rounded-md object-cover"
-        />
-        
-        {/* Overlay for placeholder images */}
-        {isPlaceholder && (
-          <div className="absolute inset-0 bg-black/40 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Plus className="h-4 w-4 text-white" />
-          </div>
-        )}
+        <div className="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-slate-200 shadow-sm group-hover:shadow-md transition-all">
+          <Image
+            src={cellImage}
+            alt={serviceName || 'Service image'}
+            fill
+            className="object-cover transition-transform group-hover:scale-105"
+          />
+          
+          {/* Overlay for placeholder images */}
+          {isPlaceholder && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Plus className="h-6 w-6 text-white" />
+            </div>
+          )}
+          
+          {/* Gallery indicator */}
+          {galleryCount > 0 && (
+            <div className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shadow-md">
+              {galleryCount}
+            </div>
+          )}
+        </div>
       </div>
       
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <ServiceGallery serviceId={service.id}>
+              <ServiceGallery serviceId={service.id} service={serviceData}>
                 <Button 
-                  variant="ghost" 
+                  variant="outline" 
                   size="sm"
-                  className={`h-8 w-8 p-0 ${isPlaceholder ? 'bg-primary/10 hover:bg-primary/20' : ''}`}
-                >
-                  {isPlaceholder ? (
-                    <Plus className="h-4 w-4" />
-                  ) : (
-                    <Images className="h-4 w-4" />
+                  className={cn(
+                    "h-9 px-3 text-xs font-medium transition-all",
+                    isPlaceholder || galleryCount === 0
+                      ? 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100' 
+                      : 'border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100'
                   )}
+                >
+                  <Images className="h-4 w-4 mr-1" />
+                  {galleryCount > 0 ? `${galleryCount} Images` : 'Add Images'}
                 </Button>
               </ServiceGallery>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isPlaceholder ? 'Add service images' : 'Manage service gallery'}</p>
+              <p>
+                {galleryCount > 0 
+                  ? `Manage gallery (${galleryCount} images)` 
+                  : 'Add service images'
+                }
+              </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
         
-        {/* Edit service link */}
+        {/* Quick edit link */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href={`/dashboard/add-service?id=${service.id}`}>
-                <Button variant="ghost" size="sm" className="h-6 w-8 p-0">
-                  <span className="text-xs">Edit</span>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-slate-600 hover:text-slate-800">
+                  <Edit className="h-3 w-3 mr-1" />
+                  Edit
                 </Button>
               </Link>
             </TooltipTrigger>
@@ -185,15 +234,33 @@ const ImageCell = ({ row }: { row: Row<ServiceColumn> }) => {
 export const columns: ColumnDef<ServiceColumn>[] = [
   {
     accessorKey: "name",
-    header: "Service Name",
+    header: "Service Details",
     cell: ({ row }) => {
       const name = row.getValue("name") as string
+      const description = row.original.description
       const isActive = row.original.isActive
       
       return (
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{name}</span>
-          {!isActive && <Badge variant="secondary">Inactive</Badge>}
+        <div className="space-y-1 min-w-[200px]">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-800">{name}</span>
+            <Badge 
+              variant={isActive ? "default" : "secondary"} 
+              className={cn(
+                "text-xs",
+                isActive 
+                  ? "bg-green-100 text-green-800 border-green-300" 
+                  : "bg-gray-100 text-gray-600 border-gray-300"
+              )}
+            >
+              {isActive ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+          {description && (
+            <p className="text-sm text-slate-600 line-clamp-2 max-w-[300px]">
+              {description}
+            </p>
+          )}
         </div>
       )
     },
@@ -203,21 +270,24 @@ export const columns: ColumnDef<ServiceColumn>[] = [
     header: "Category",
     cell: ({ row }) => {
       const category = row.getValue("category") as string
-      const categoryColors = {
-        haircut: "bg-blue-100 text-blue-800",
-        beard: "bg-green-100 text-green-800",
-        styling: "bg-purple-100 text-purple-800",
-        wash: "bg-cyan-100 text-cyan-800",
-        treatment: "bg-orange-100 text-orange-800",
-        combo: "bg-pink-100 text-pink-800",
+      const categoryConfig = {
+        haircut: { color: "bg-blue-100 text-blue-800 border-blue-300", icon: "✂️" },
+        beard: { color: "bg-green-100 text-green-800 border-green-300", icon: "🧔" },
+        styling: { color: "bg-purple-100 text-purple-800 border-purple-300", icon: "💇" },
+        wash: { color: "bg-cyan-100 text-cyan-800 border-cyan-300", icon: "🚿" },
+        treatment: { color: "bg-orange-100 text-orange-800 border-orange-300", icon: "🧴" },
+        combo: { color: "bg-pink-100 text-pink-800 border-pink-300", icon: "🎯" },
+      }
+      
+      const config = categoryConfig[category as keyof typeof categoryConfig] || {
+        color: "bg-gray-100 text-gray-800 border-gray-300",
+        icon: "📋"
       }
       
       return (
-        <Badge 
-          variant="secondary" 
-          className={categoryColors[category as keyof typeof categoryColors] || ""}
-        >
-          {category}
+        <Badge className={cn("font-medium border", config.color)}>
+          <span className="mr-1">{config.icon}</span>
+          {category.charAt(0).toUpperCase() + category.slice(1)}
         </Badge>
       )
     },
@@ -232,7 +302,11 @@ export const columns: ColumnDef<ServiceColumn>[] = [
         currency: "NGN",
         style: "currency",
       }).format(isNaN(price) ? 0 : price)
-      return <div className="font-medium text-sm">{formatted}</div>
+      return (
+        <div className="font-bold text-lg text-green-700 bg-green-50 px-3 py-1 rounded-lg border border-green-200 text-center min-w-[100px]">
+          {formatted}
+        </div>
+      )
     },
   },
   {
@@ -241,9 +315,9 @@ export const columns: ColumnDef<ServiceColumn>[] = [
     cell: ({ row }) => {
       const duration = row.getValue("duration") as number
       return (
-        <div className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          <span className="text-sm">{duration}min</span>
+        <div className="flex items-center gap-2 text-slate-700">
+          <Clock className="h-4 w-4 text-amber-600" />
+          <span className="font-medium">{duration} min</span>
         </div>
       )
     },
@@ -256,21 +330,28 @@ export const columns: ColumnDef<ServiceColumn>[] = [
       const totalRatings = row.original.totalRatings
       
       if (totalRatings === 0) {
-        return <span className="text-gray-500 text-sm">No ratings</span>
+        return (
+          <div className="flex items-center gap-2 text-slate-500">
+            <Star className="h-4 w-4" />
+            <span className="text-sm">No ratings</span>
+          </div>
+        )
       }
       
       return (
-        <div className="flex items-center gap-1">
-          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-          <span className="text-sm font-medium">{rating.toFixed(1)}</span>
-          <span className="text-xs text-gray-500">({totalRatings})</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+            <span className="font-bold text-yellow-800">{rating.toFixed(1)}</span>
+          </div>
+          <span className="text-xs text-slate-500">({totalRatings})</span>
         </div>
       )
     },
   },
   {
     accessorKey: "image",
-    header: "Image",
+    header: "Images",
     cell: ImageCell,
   },
   {
