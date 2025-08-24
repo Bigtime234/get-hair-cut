@@ -64,20 +64,59 @@ export type RatingWithDetails = Rating & {
   customer: User
 }
 
-// Available time slot type
+// BOOKING WIDGET SPECIFIC TYPES
 export type AvailableTimeSlot = {
   time: string // e.g., "10:00"
   available: boolean
   reason?: string // if not available
 }
 
-// Daily availability type
+// Daily availability type for booking widget
 export type DayAvailability = {
   date: Date
   isAvailable: boolean
   timeSlots: AvailableTimeSlot[]
   workingHours?: WorkingHours
   blockedTimes?: BlockedTime[]
+}
+
+// Service data structure for booking widget
+export type ServiceWithAvailability = {
+  id: string
+  name: string
+  description: string | null
+  price: string
+  duration: number
+  category: string | null
+  imageUrl: string | null
+  averageRating: string | null
+  totalRatings: number | null
+  isActive: boolean
+}
+
+// Upcoming days structure for booking widget
+export type UpcomingDay = {
+  date: Date
+  label: string
+  availableSlots: number
+  slots: AvailableTimeSlot[]
+}
+
+// Booking widget form data
+export type BookingWidgetData = {
+  serviceId: string
+  selectedDate: number
+  selectedTime: string
+  notes?: string
+}
+
+// Server action types for booking widget
+export type BookingData = {
+  serviceId: string
+  customerId: string
+  appointmentDate: Date
+  startTime: string
+  notes?: string
 }
 
 // Booking form data types
@@ -242,4 +281,24 @@ export type TimeRange = {
 
 export type WeeklySchedule = {
   [key in 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday']?: TimeRange
+}
+
+// Component prop types for booking widgets
+export type BookingWidgetProps = {
+  onBookNow?: () => void
+  selectedService?: string
+}
+
+export type ServiceBookingWidgetProps = {
+  serviceId: string
+  serviceName: string
+  servicePrice: number
+  serviceDuration: number
+}
+
+// Time slot conflict checking
+export type TimeSlotCheck = {
+  isConflicting: boolean
+  conflictType?: 'booking' | 'blocked' | 'closed'
+  conflictReason?: string
 }
