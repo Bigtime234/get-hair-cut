@@ -82,13 +82,12 @@ export default function LiveBookingWidget({
         const datesWithSlots: DateOption[] = []
         
         for (const dateOption of dates) {
-          const result = await getAvailableSlots({
-            serviceId,
-            date: dateOption.date,
-            duration: serviceDuration
-          })
+          const result = await getAvailableSlots(
+            dateOption.date,
+            serviceDuration
+          )
           
-          if (result.success) {
+          if ('success' in result) {
             datesWithSlots.push({
               ...dateOption,
               slots: result.success

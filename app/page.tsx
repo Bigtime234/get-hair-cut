@@ -100,10 +100,10 @@ const HomePage = async () => {
                 const totalRatings = service.totalRatings || 0
 
                 return (
-                  <Link key={service.id} href={`/${service.id}`}>
-                    <Card className="group h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border-2 hover:border-amber-200">
-                      <div className="relative">
-                        {/* Service Image */}
+                  <Card key={service.id} className="group h-full hover:shadow-xl transition-all duration-300 hover:-translate-y-2 cursor-pointer border-2 hover:border-amber-200">
+                    <div className="relative">
+                      {/* Service Image - Clickable to view details */}
+                      <Link href={`/services/${service.id}`}>
                         <div className="aspect-[4/3] relative overflow-hidden rounded-t-lg">
                           <Image
                             src={mainImage}
@@ -124,69 +124,73 @@ const HomePage = async () => {
                             {formatPrice(service.price)}
                           </div>
                         </div>
-                      </div>
+                      </Link>
+                    </div>
 
-                      <CardContent className="p-6 space-y-4">
-                        {/* Service Name & Category */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-bold text-xl text-slate-800 group-hover:text-amber-600 transition-colors">
+                    <CardContent className="p-6 space-y-4">
+                      {/* Service Name & Category - Clickable to view details */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Link href={`/services/${service.id}`}>
+                            <h3 className="font-bold text-xl text-slate-800 group-hover:text-amber-600 transition-colors cursor-pointer">
                               {service.name}
                             </h3>
-                            <Badge className={`font-medium border text-xs ${categoryStyle.color}`}>
-                              <span className="mr-1">{categoryStyle.icon}</span>
-                              {service.category 
-                                ? service.category.charAt(0).toUpperCase() + service.category.slice(1)
-                                : 'General'
-                              }
-                            </Badge>
+                          </Link>
+                          <Badge className={`font-medium border text-xs ${categoryStyle.color}`}>
+                            <span className="mr-1">{categoryStyle.icon}</span>
+                            {service.category 
+                              ? service.category.charAt(0).toUpperCase() + service.category.slice(1)
+                              : 'General'
+                            }
+                          </Badge>
+                        </div>
+
+                        {/* Duration & Rating */}
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1 text-slate-600">
+                            <Clock className="h-4 w-4 text-amber-600" />
+                            <span className="font-medium">{service.duration} min</span>
                           </div>
 
-                          {/* Duration & Rating */}
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-1 text-slate-600">
-                              <Clock className="h-4 w-4 text-amber-600" />
-                              <span className="font-medium">{service.duration} min</span>
-                            </div>
-
-                            {totalRatings > 0 ? (
-                              <div className="flex items-center gap-1">
-                                <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
-                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                  <span className="font-bold text-yellow-800 text-sm">
-                                    {averageRating.toFixed(1)}
-                                  </span>
-                                </div>
-                                <span className="text-xs text-slate-500 flex items-center gap-1">
-                                  <Users className="h-3 w-3" />
-                                  ({totalRatings})
+                          {totalRatings > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded border border-yellow-200">
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                <span className="font-bold text-yellow-800 text-sm">
+                                  {averageRating.toFixed(1)}
                                 </span>
                               </div>
-                            ) : (
-                              <div className="flex items-center gap-1 text-slate-400">
-                                <Star className="h-4 w-4" />
-                                <span className="text-xs">New service</span>
-                              </div>
-                            )}
-                          </div>
+                              <span className="text-xs text-slate-500 flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                ({totalRatings})
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-slate-400">
+                              <Star className="h-4 w-4" />
+                              <span className="text-xs">New service</span>
+                            </div>
+                          )}
                         </div>
+                      </div>
 
-                        {/* Description */}
-                        {service.description && (
-                          <div className="text-slate-600 text-sm leading-relaxed line-clamp-2">
-                            <div dangerouslySetInnerHTML={{ __html: service.description }} />
-                          </div>
-                        )}
+                      {/* Description */}
+                      {service.description && (
+                        <div className="text-slate-600 text-sm leading-relaxed line-clamp-2">
+                          <div dangerouslySetInnerHTML={{ __html: service.description }} />
+                        </div>
+                      )}
 
-                        {/* Book Button */}
-                        <div className="pt-2">
-                          <div className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-semibold py-3 px-4 rounded-lg text-center transition-all duration-200 group-hover:shadow-lg">
+                      {/* Book Button - Goes to booking form */}
+                      <div className="pt-2">
+                        <Link href={`/book/${service.id}`}>
+                          <div className="w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-semibold py-3 px-4 rounded-lg text-center transition-all duration-200 hover:shadow-lg cursor-pointer">
                             Book Now
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
                 )
               })}
             </div>

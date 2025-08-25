@@ -1,36 +1,56 @@
 import ServiceType from "@/app/components/service/service-type"
-import placeholder from "@/public/placeholder.png"
+import placeholder from "@/public/Barber2.jpg"
 import { db } from "@/server"
 import { services } from "@/server/schema"
 import { eq } from "drizzle-orm"
 import { Separator } from "@/components/ui/separator"
 import ServiceShowcase from "@/app/components/service/service-showcase"
 import ServiceRatings from "@/app/components/service/service-ratings"
-import { getServiceRatingAverage } from "@/lib/service-rating-average"
-import LiveBookingWidget from "@/app/components/booking/live-booking-widget"
 import { Clock, Star, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
+import { notFound } from "next/navigation"
 
 export const revalidate = 60
 
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
   const data = await db.query.services.findMany({
+    where: eq(services.isActive, true),
     orderBy: (services, { desc }) => [desc(services.id)],
   })
   return data.map((service) => ({
-    slug: service.id.toString(),
+    slug: service.id,
   }))
 }
 
-export default async function Page({
+export async function generateMetadata({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const { slug } = await params
-  const search = searchParams ? await searchParams : {}
+  const service = await db.query.services.findFirst({
+    where: eq(services.id, slug),
+  })
+
+  if (!service) {
+    return {
+      title: "Service Not Found",
+    }
+  }
+
+  return {
+    title: `${service.name} - Professional Barber Services`,
+    description: service.description || `Book ${service.name} service with professional care`,
+  }
+}
+
+export default async function ServiceDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const { slug } = await params
   
   const service = await db.query.services.findFirst({
     where: eq(services.id, slug),
@@ -44,19 +64,10 @@ export default async function Page({
   })
   
   if (!service) {
-    return (
-      <main className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600">Service Not Found</h1>
-          <p className="text-gray-600 mt-2">
-            The service with ID "{slug}" could not be found.
-          </p>
-        </div>
-      </main>
-    )
+    notFound()
   }
   
-  // Format price using your NGN format
+  // Format price using NGN format
   const formatPrice = (price: string | number) => {
     const priceValue = typeof price === 'string' ? parseFloat(price) : price
     return new Intl.NumberFormat("en-NG", {
@@ -76,7 +87,7 @@ export default async function Page({
     galleryUrls = []
   }
 
-  // Add main image to gallery if exists - Fixed null handling
+  // Add main image to gallery if exists
   const allImages = service.imageUrl 
     ? [service.imageUrl, ...galleryUrls] 
     : galleryUrls
@@ -91,7 +102,7 @@ export default async function Page({
     combo: { color: "bg-pink-100 text-pink-800 border-pink-300", icon: "🎯" },
   }
 
-  // Fixed category handling with proper null checks
+  // Category styling with proper null checks
   const categoryStyle = service.category 
     ? categoryConfig[service.category as keyof typeof categoryConfig] || {
         color: "bg-gray-100 text-gray-800 border-gray-300",
@@ -103,7 +114,7 @@ export default async function Page({
       }
     
   return (
-    <main>
+    <main className="container mx-auto px-4 py-8">
       <section className="flex flex-col lg:flex-row gap-4 lg:gap-12">
         <div className="flex-1">
           <ServiceShowcase images={allImages} serviceName={service.name} />
@@ -194,15 +205,15 @@ export default async function Page({
 
           <Separator className="my-6" />
           
-          {/* Live Booking Widget */}
+          {/* Book Now Button - Links to booking form */}
           {service.isActive && (
             <div className="mt-6">
-              <LiveBookingWidget 
-                serviceId={service.id}
-                serviceName={service.name}
-                servicePrice={service.price}
-                serviceDuration={service.duration}
-              />
+              <Link 
+                href={`/book/${service.id}`}
+                className="block w-full bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-bold py-4 px-6 rounded-lg text-center transition-all duration-200 hover:shadow-lg text-lg"
+              >
+                Book This Service Now
+              </Link>
             </div>
           )}
         </div>
